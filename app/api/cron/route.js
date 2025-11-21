@@ -4,7 +4,9 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { getTestModeSettings, updateTestPortfolioPrices } from '@/lib/simulationEngine';
 
-// This endpoint will be called by a cron job (e.g., Vercel Cron, or external service)
+// ⚠️ DEPRECATED: This endpoint is no longer used. Cron jobs are now handled by Firebase Cloud Functions.
+// This endpoint is kept for backward compatibility but will not be called automatically.
+// See FIREBASE_FUNCTIONS_SETUP.md for the new cron implementation.
 export async function GET(request) {
   try {
     // Verify cron secret if needed

@@ -76,32 +76,28 @@ The system automatically:
 
 ## Cron Job Setup
 
-### Option 1: Vercel (Recommended for Production)
+### ✅ Firebase Cloud Functions (Current Implementation)
 
-If deploying to Vercel, the `vercel.json` file is already configured. Just make sure to set the `CRON_SECRET` environment variable in Vercel.
+**The cron job is now handled by Firebase Cloud Functions** and runs automatically every 5 minutes.
 
-### Option 2: Local/Other Hosting
+**Setup:**
+1. See `FIREBASE_FUNCTIONS_SETUP.md` for complete setup instructions
+2. Deploy the function: `firebase deploy --only functions:generateTradingSignal`
+3. The function will automatically run every 5 minutes
 
-Run the cron script locally:
+**Benefits:**
+- ✅ No Vercel cron needed
+- ✅ Works independently
+- ✅ Free tier covers ~8,640 invocations/month
+- ✅ Easy monitoring in Firebase Console
 
-```bash
-node scripts/cron.js
-```
+### ⚠️ Deprecated Options
 
-Or use a process manager like PM2:
+The following options are no longer needed but kept for reference:
 
-```bash
-pm2 start scripts/cron.js --name deepseek-cron
-```
-
-### Option 3: External Cron Service
-
-Use services like:
-- GitHub Actions (with scheduled workflows)
-- EasyCron
-- Cron-job.org
-
-Set them to call: `https://your-domain.com/api/cron` with the Authorization header: `Bearer YOUR_CRON_SECRET`
+- **Vercel Cron**: No longer used (moved to Firebase)
+- **Local Cron Script**: `scripts/cron.js` - kept for reference only
+- **External Cron Services**: No longer needed
 
 ## API Endpoints
 
@@ -110,7 +106,7 @@ Set them to call: `https://your-domain.com/api/cron` with the Authorization head
 - `GET /api/positions?address=WALLET_ADDRESS` - Get positions from Hyperliquid
 - `POST /api/generate-signal` - Generate trading signal
 - `POST /api/telegram/send` - Send message to Telegram
-- `GET /api/cron` - Cron job endpoint (runs every 5 minutes)
+- `GET /api/cron` - ⚠️ Deprecated: Cron job endpoint (now handled by Firebase Cloud Functions)
 - `GET /api/settings?key=KEY` - Get setting value
 - `POST /api/settings` - Save setting value
 

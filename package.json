@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "cron": "node scripts/cron.js"
+    "cron": "echo '⚠️ Cron jobs are now handled by Firebase Cloud Functions. See FIREBASE_FUNCTIONS_SETUP.md'"
   },
   "dependencies": {
     "axios": "^1.13.2",
