@@ -6,12 +6,30 @@ export async function POST(request) {
   try {
     const { messages } = await request.json();
 
-    console.log('🤖 Calling DeepSeek API (proxy)...');
+    console.log('🤖 Calling DeepSeek Reasoner API (proxy)...');
+    
+    // Enhance messages to ensure JSON output
+    const enhancedMessages = messages.map((msg, idx) => {
+      if (idx === 0 && msg.role === 'system') {
+        return {
+          ...msg,
+          content: msg.content + ' Your final answer MUST be valid JSON only, with no additional text.'
+        };
+      }
+      if (msg.role === 'user') {
+        return {
+          ...msg,
+          content: msg.content + '\n\nIMPORTANT: Return your final trading decisions as a JSON object. Do not include any text before or after the JSON.'
+        };
+      }
+      return msg;
+    });
+    
     const response = await axios.post(
       DEEPSEEK_API_URL,
       {
-        model: 'deepseek-chat',
-        messages: messages,
+        model: 'deepseek-reasoner',
+        messages: enhancedMessages,
         temperature: 0.7,
         max_tokens: 4000,
       },

@@ -11,6 +11,8 @@ export async function POST(request) {
       walletAddress,
       signal,
       rawResponse,
+      reasoningContent,
+      content,
       userPrompt,
       accountInfo,
       positions,
@@ -68,12 +70,15 @@ export async function POST(request) {
       walletAddress: finalIsTestMode ? 'TEST_MODE' : walletAddress,
       signal,
       rawResponse,
+      reasoningContent: reasoningContent || null,
+      content: content || null,
       userPrompt,
       accountInfo,
       positions,
       marketData,
       tradeExecution,
       isTestMode: finalIsTestMode,
+      model: 'deepseek-reasoner',
     };
     
     await setDoc(doc(db, collectionName, docId), signalData);

@@ -79,23 +79,118 @@ export default function StatusPage() {
       const aiResponse = deepseekData.data.choices[0].message.content;
       console.log('✅ DeepSeek response received, parsing JSON...');
       
-      // Step 3: Parse JSON from response
+      // Step 3: Parse JSON from response (use same logic as test endpoint)
+      const textToParse = aiResponse;
       let jsonData;
+      let parseSource = 'unknown';
+      
+      if (!textToParse) {
+        throw new Error('Response is empty');
+      }
+      
+      // Try multiple extraction methods (same as test endpoint)
       try {
-        jsonData = JSON.parse(aiResponse);
-      } catch (e) {
-        const jsonMatch = aiResponse.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
-        if (jsonMatch) {
-          jsonData = JSON.parse(jsonMatch[1]);
-        } else {
-          const objectMatch = aiResponse.match(/\{[\s\S]*\}/);
-          if (objectMatch) {
-            jsonData = JSON.parse(objectMatch[0]);
-          } else {
-            throw new Error('Could not extract JSON from response');
+        // Method 1: Direct JSON parse (THIS WORKS - tested!)
+        jsonData = JSON.parse(textToParse);
+        parseSource = 'direct';
+        console.log('✅ JSON parsed successfully (direct parse)');
+      } catch (e1) {
+        try {
+          // Method 2: Extract from markdown code blocks
+          const jsonMatch = textToParse.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+          if (jsonMatch) {
+            jsonData = JSON.parse(jsonMatch[1]);
+            parseSource = 'markdown';
+            console.log('✅ JSON parsed successfully (from markdown)');
+          }
+        } catch (e2) {
+          // Continue
+        }
+        
+        if (!jsonData) {
+          try {
+            // Method 3: Find ALL JSON-like objects and try each
+            const jsonPattern = /\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}/g;
+            const allMatches = textToParse.match(jsonPattern);
+            if (allMatches && allMatches.length > 0) {
+              console.log(`Found ${allMatches.length} potential JSON objects, trying from last...`);
+              // Try from last match backwards
+              for (let i = allMatches.length - 1; i >= 0; i--) {
+                try {
+                  const parsed = JSON.parse(allMatches[i]);
+                  // Verify it's a trading signal object
+                  const keys = Object.keys(parsed);
+                  if (keys.length > 0 && keys.some(k => ['BTC', 'ETH', 'SOL', 'XRP', 'DOGE', 'BNB'].includes(k))) {
+                    jsonData = parsed;
+                    parseSource = `json-object-${i}`;
+                    console.log(`✅ JSON parsed successfully (object match #${i})`);
+                    break;
+                  }
+                } catch (parseErr) {
+                  // Try next match
+                }
+              }
+            }
+          } catch (e3) {
+            // Continue
+          }
+        }
+        
+        if (!jsonData) {
+          // Method 4: Extract from last 2000 chars with brace matching
+          const lastPart = textToParse.substring(Math.max(0, textToParse.length - 2000));
+          const jsonStart = lastPart.indexOf('{');
+          if (jsonStart !== -1) {
+            const potentialJson = lastPart.substring(jsonStart);
+            let braceCount = 0;
+            let jsonEnd = -1;
+            for (let i = 0; i < potentialJson.length; i++) {
+              if (potentialJson[i] === '{') braceCount++;
+              if (potentialJson[i] === '}') {
+                braceCount--;
+                if (braceCount === 0) {
+                  jsonEnd = i + 1;
+                  break;
+                }
+              }
+            }
+            if (jsonEnd > 0) {
+              try {
+                const extracted = potentialJson.substring(0, jsonEnd);
+                jsonData = JSON.parse(extracted);
+                parseSource = 'end-extraction';
+                console.log('✅ JSON parsed successfully (end extraction)');
+              } catch (e4) {
+                // Continue
+              }
+            }
+          }
+        }
+        
+        if (!jsonData) {
+          // Method 5: Extract between first { and last } with proper brace matching
+          const firstBrace = textToParse.indexOf('{');
+          const lastBrace = textToParse.lastIndexOf('}');
+          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            try {
+              const extracted = textToParse.substring(firstBrace, lastBrace + 1);
+              jsonData = JSON.parse(extracted);
+              parseSource = 'brace-extraction';
+              console.log('✅ JSON parsed successfully (brace extraction)');
+            } catch (e5) {
+              // Final attempt failed
+            }
           }
         }
       }
+      
+      if (!jsonData) {
+        console.error('❌ Failed to parse JSON from response');
+        console.error('Response:', textToParse.substring(0, 500));
+        throw new Error('Could not extract valid JSON from response');
+      }
+      
+      console.log(`✅ JSON extracted from: ${parseSource}`);
       
       console.log('✅ JSON parsed, saving signal...');
       
@@ -1211,11 +1306,19 @@ export default function StatusPage() {
                                               </div>
                                             </div>
                                           )}
-                                          {decision.justification && (
+                                          {(decision.justification || decision.rationale) && (
                                             <div className="mt-2">
                                               <div className="text-gray-600 mb-1 font-semibold">JUSTIFICATION:</div>
                                               <div className="p-2 bg-gray-100 rounded text-gray-800">
-                                                {decision.justification}
+                                                {decision.justification || decision.rationale}
+                                              </div>
+                                            </div>
+                                          )}
+                                          {decision.exit_plan && decision.exit_plan !== 'N/A' && (
+                                            <div className="mt-2">
+                                              <div className="text-gray-600 mb-1 font-semibold">EXIT PLAN:</div>
+                                              <div className="p-2 bg-blue-50 rounded text-gray-800">
+                                                {decision.exit_plan}
                                               </div>
                                             </div>
                                           )}

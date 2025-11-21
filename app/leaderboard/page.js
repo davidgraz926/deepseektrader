@@ -63,14 +63,14 @@ export default function Leaderboard() {
     
     closedTrades.forEach(trade => {
       const pnl = trade.pnl || 0;
-      totalPnL += pnl;
-      
-      if (pnl > 0) {
-        winningTrades++;
-        wins.push(pnl);
-      } else if (pnl < 0) {
-        losingTrades++;
-        losses.push(pnl);
+        totalPnL += pnl;
+        
+        if (pnl > 0) {
+          winningTrades++;
+          wins.push(pnl);
+        } else if (pnl < 0) {
+          losingTrades++;
+          losses.push(pnl);
       }
     });
 
@@ -350,7 +350,7 @@ export default function Leaderboard() {
                     
                     return (
                       <tr key={signal.id || idx} className="hover:bg-blue-50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                           {timestamp.toLocaleString('en-US', { 
                             month: 'short', 
                             day: 'numeric', 
@@ -358,24 +358,24 @@ export default function Leaderboard() {
                             hour: '2-digit', 
                             minute: '2-digit' 
                           })}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                           {accountValue > 0 ? formatCurrency(accountValue) : formatCurrency(1000)}
-                        </td>
-                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${
+                      </td>
+                      <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${
                           returnPercent >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
+                      }`}>
                           {returnPercent !== 0 ? formatPercent(returnPercent) : '0.00%'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                           {positionsCount}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
-                            Executed
-                          </span>
-                        </td>
-                      </tr>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                          Executed
+                        </span>
+                      </td>
+                    </tr>
                     );
                   })}
                 </tbody>

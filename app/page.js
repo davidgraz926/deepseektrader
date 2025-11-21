@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { FiActivity, FiSettings, FiRefreshCw, FiTrendingUp, FiDollarSign, FiPieChart, FiChevronDown, FiChevronRight, FiCheckCircle, FiAlertCircle, FiClock } from 'react-icons/fi';
+import { FiActivity, FiSettings, FiRefreshCw, FiTrendingUp, FiDollarSign, FiPieChart, FiChevronDown, FiChevronRight, FiCheckCircle, FiAlertCircle, FiTrash2 } from 'react-icons/fi';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
 
 export default function Dashboard() {
@@ -20,8 +20,6 @@ export default function Dashboard() {
   const [timeframe, setTimeframe] = useState('ALL');
   const [isTestMode, setIsTestMode] = useState(false);
   const [autoGenerating, setAutoGenerating] = useState(false);
-  const [nextSignalTime, setNextSignalTime] = useState(null);
-  const [timeRemaining, setTimeRemaining] = useState({ minutes: 5, seconds: 0 });
   const [priceTicker, setPriceTicker] = useState({
     TSLA: { price: 400.25, change: 0.5 },
     NDX: { price: 24250.50, change: 0.3 },
@@ -36,10 +34,6 @@ export default function Dashboard() {
     loadStatus();
     loadPriceTicker();
     
-    // Initialize next signal time (5 minutes from now)
-    const initialNextTime = new Date(Date.now() + 5 * 60 * 1000);
-    setNextSignalTime(initialNextTime);
-    
     // Refresh status every 30 seconds
     const statusInterval = setInterval(() => {
       loadStatus();
@@ -51,33 +45,6 @@ export default function Dashboard() {
     };
   }, []);
   
-  // Countdown timer effect - updates every second
-  useEffect(() => {
-    if (!nextSignalTime) return;
-    
-    const updateTimer = () => {
-      const now = new Date();
-      const diff = nextSignalTime.getTime() - now.getTime();
-      
-      if (diff <= 0) {
-        // Timer expired, reset to 5 minutes
-        setNextSignalTime(new Date(now.getTime() + 5 * 60 * 1000));
-        setTimeRemaining({ minutes: 5, seconds: 0 });
-      } else {
-        const minutes = Math.floor(diff / 60000);
-        const seconds = Math.floor((diff % 60000) / 1000);
-        setTimeRemaining({ minutes, seconds });
-      }
-    };
-    
-    // Update immediately
-    updateTimer();
-    
-    // Update every second
-    const timerInterval = setInterval(updateTimer, 1000);
-    
-    return () => clearInterval(timerInterval);
-  }, [nextSignalTime]);
 
   const loadPriceTicker = async () => {
     try {
@@ -97,6 +64,37 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Error loading price ticker:', error);
+    }
+  };
+
+  const deleteSignal = async (signalId) => {
+    if (!confirm('Are you sure you want to delete this signal? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const deleteRes = await fetch(`/api/signals/delete?id=${signalId}`, {
+        method: 'DELETE',
+      });
+
+      const deleteData = await deleteRes.json();
+      
+      if (deleteData.success) {
+        // Remove signal from local state
+        setSignals(prevSignals => prevSignals.filter(s => s.id !== signalId));
+        setSignalMessage('✅ Signal deleted successfully');
+        setTimeout(() => setSignalMessage(''), 3000);
+        
+        // Reload status to update chart
+        setTimeout(() => loadStatus(), 1000);
+      } else {
+        setSignalMessage(`❌ Error: ${deleteData.error}`);
+        setTimeout(() => setSignalMessage(''), 3000);
+      }
+    } catch (error) {
+      console.error('Error deleting signal:', error);
+      setSignalMessage(`❌ Error: ${error.message}`);
+      setTimeout(() => setSignalMessage(''), 3000);
     }
   };
 
@@ -336,8 +334,6 @@ export default function Dashboard() {
       setSignalMessage('');
     }
     
-    // Reset timer when generating signal (manually or automatically)
-    setNextSignalTime(new Date(Date.now() + 5 * 60 * 1000));
 
     try {
       // Use TEST_MODE if test mode is enabled, otherwise use wallet address
@@ -381,26 +377,130 @@ export default function Dashboard() {
         throw new Error(deepseekData.error || 'DeepSeek API failed');
       }
       
-      const aiResponse = deepseekData.data.choices[0].message.content;
+      const choice = deepseekData.data.choices[0];
+      const aiContent = choice.message.content || '';
+      const reasoningContent = choice.message.reasoning_content || '';
+      
+      // Combine reasoning and content for display
+      const fullResponse = reasoningContent 
+        ? `${reasoningContent}\n\n${aiContent}`.trim()
+        : aiContent;
+      
       console.log('[Dashboard] ✅ DeepSeek response received, parsing JSON...');
       
-      // Step 3: Parse JSON from response
+      // Step 3: Parse JSON from response (use same logic as test endpoint)
+      const textToParse = aiContent || reasoningContent;
       let jsonData;
+      let parseSource = 'unknown';
+      
+      if (!textToParse) {
+        throw new Error('Both content and reasoning_content are empty');
+      }
+      
+      // Try multiple extraction methods (same as test endpoint)
       try {
-        jsonData = JSON.parse(aiResponse);
-      } catch (e) {
-        const jsonMatch = aiResponse.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
-        if (jsonMatch) {
-          jsonData = JSON.parse(jsonMatch[1]);
-        } else {
-          const objectMatch = aiResponse.match(/\{[\s\S]*\}/);
-          if (objectMatch) {
-            jsonData = JSON.parse(objectMatch[0]);
-          } else {
-            throw new Error('Could not extract JSON from response');
+        // Method 1: Direct JSON parse (THIS WORKS - tested!)
+        jsonData = JSON.parse(textToParse);
+        parseSource = 'direct';
+        console.log('[Dashboard] ✅ JSON parsed successfully (direct parse)');
+      } catch (e1) {
+        try {
+          // Method 2: Extract from markdown code blocks
+          const jsonMatch = textToParse.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+          if (jsonMatch) {
+            jsonData = JSON.parse(jsonMatch[1]);
+            parseSource = 'markdown';
+            console.log('[Dashboard] ✅ JSON parsed successfully (from markdown)');
+          }
+        } catch (e2) {
+          // Continue
+        }
+        
+        if (!jsonData) {
+          try {
+            // Method 3: Find ALL JSON-like objects and try each
+            const jsonPattern = /\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}/g;
+            const allMatches = textToParse.match(jsonPattern);
+            if (allMatches && allMatches.length > 0) {
+              console.log(`[Dashboard] Found ${allMatches.length} potential JSON objects, trying from last...`);
+              // Try from last match backwards
+              for (let i = allMatches.length - 1; i >= 0; i--) {
+                try {
+                  const parsed = JSON.parse(allMatches[i]);
+                  // Verify it's a trading signal object
+                  const keys = Object.keys(parsed);
+                  if (keys.length > 0 && keys.some(k => ['BTC', 'ETH', 'SOL', 'XRP', 'DOGE', 'BNB'].includes(k))) {
+                    jsonData = parsed;
+                    parseSource = `json-object-${i}`;
+                    console.log(`[Dashboard] ✅ JSON parsed successfully (object match #${i})`);
+                    break;
+                  }
+                } catch (parseErr) {
+                  // Try next match
+                }
+              }
+            }
+          } catch (e3) {
+            // Continue
+          }
+        }
+        
+        if (!jsonData) {
+          // Method 4: Extract from last 2000 chars with brace matching
+          const lastPart = textToParse.substring(Math.max(0, textToParse.length - 2000));
+          const jsonStart = lastPart.indexOf('{');
+          if (jsonStart !== -1) {
+            const potentialJson = lastPart.substring(jsonStart);
+            let braceCount = 0;
+            let jsonEnd = -1;
+            for (let i = 0; i < potentialJson.length; i++) {
+              if (potentialJson[i] === '{') braceCount++;
+              if (potentialJson[i] === '}') {
+                braceCount--;
+                if (braceCount === 0) {
+                  jsonEnd = i + 1;
+                  break;
+                }
+              }
+            }
+            if (jsonEnd > 0) {
+              try {
+                const extracted = potentialJson.substring(0, jsonEnd);
+                jsonData = JSON.parse(extracted);
+                parseSource = 'end-extraction';
+                console.log('[Dashboard] ✅ JSON parsed successfully (end extraction)');
+              } catch (e4) {
+                // Continue
+              }
+            }
+          }
+        }
+        
+        if (!jsonData) {
+          // Method 5: Extract between first { and last } with proper brace matching
+          const firstBrace = textToParse.indexOf('{');
+          const lastBrace = textToParse.lastIndexOf('}');
+          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            try {
+              const extracted = textToParse.substring(firstBrace, lastBrace + 1);
+              jsonData = JSON.parse(extracted);
+              parseSource = 'brace-extraction';
+              console.log('[Dashboard] ✅ JSON parsed successfully (brace extraction)');
+            } catch (e5) {
+              // Final attempt failed
+            }
           }
         }
       }
+      
+      if (!jsonData) {
+        console.error('[Dashboard] ❌ Failed to parse JSON from response');
+        console.error('[Dashboard] Content:', aiContent.substring(0, 500));
+        console.error('[Dashboard] Reasoning:', reasoningContent.substring(0, 500));
+        throw new Error('Could not extract valid JSON from response');
+      }
+      
+      console.log(`[Dashboard] ✅ JSON extracted from: ${parseSource}`);
       
       console.log('[Dashboard] ✅ JSON parsed, saving signal...');
       
@@ -415,7 +515,9 @@ export default function Dashboard() {
         body: JSON.stringify({
           walletAddress: wallet,
           signal: jsonData,
-          rawResponse: aiResponse,
+          rawResponse: fullResponse,
+          reasoningContent: reasoningContent,
+          content: aiContent,
           userPrompt,
           accountInfo,
           positions,
@@ -431,8 +533,6 @@ export default function Dashboard() {
         if (!silent) {
           setSignalMessage('✅ Signal generated successfully!');
         }
-        // Reset timer for next 5-minute cycle
-        setNextSignalTime(new Date(Date.now() + 5 * 60 * 1000));
         setTimeout(() => loadStatus(), 2000);
       } else {
         if (!silent) {
@@ -452,21 +552,8 @@ export default function Dashboard() {
     }
   }, [isTestMode, walletAddress]);
 
-    // Auto-generate signal every 5 minutes (300000ms)
-  useEffect(() => {
-    if (!generateSignalNow) return;
-    
-    const signalInterval = setInterval(() => {
-      console.log('⏰ 5-minute interval: Auto-generating signal...');
-      generateSignalNow(true); // Silent mode - no loading state
-      // Reset timer for next 5-minute cycle
-      setNextSignalTime(new Date(Date.now() + 5 * 60 * 1000));
-    }, 300000); // 5 minutes
-    
-    return () => {
-      clearInterval(signalInterval);
-    };
-  }, [generateSignalNow]);
+  // Note: Auto-generation is now handled by Firebase Cloud Function (every 5 minutes)
+  // No need for client-side auto-generation timer
 
   // Auto-generate initial signal if none exist
   useEffect(() => {
@@ -823,15 +910,11 @@ export default function Dashboard() {
                   <span>MODELCHAT</span>
                 </h3>
                 <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-1 text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                    <FiClock className="w-3 h-3" />
-                    <span>Next signal in:</span>
-                    <span className="font-semibold text-blue-600">
-                      {timeRemaining.minutes}m {timeRemaining.seconds.toString().padStart(2, '0')}s
-                    </span>
-                  </div>
                   <div className="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg">
-                    DEEPSEEK-CHAT-V3.1
+                    DEEPSEEK-REASONER
+                  </div>
+                  <div className="text-xs text-gray-500 italic">
+                    Auto-generated every 5 min via Firebase
                   </div>
                 </div>
               </div>
@@ -879,10 +962,17 @@ export default function Dashboard() {
                             <span className="text-sm font-bold text-blue-600">AI</span>
                           </div>
                           <div>
-                            <div className="text-sm font-bold text-blue-600">DEEPSEEK-CHAT-V3.1</div>
+                            <div className="text-sm font-bold text-blue-600">DEEPSEEK-REASONER</div>
                             <div className="text-xs text-gray-500">{timeStr}</div>
                           </div>
                         </div>
+                        <button
+                          onClick={() => deleteSignal(signal.id)}
+                          className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete signal"
+                        >
+                          <FiTrash2 className="w-4 h-4" />
+                        </button>
                       </div>
                       
                       {/* USER_PROMPT Section */}
@@ -910,9 +1000,9 @@ export default function Dashboard() {
                           <span className="mr-2">{isSectionExpanded(signal.id, 'chain_of_thought') ? '▼' : '▶'}</span>
                           <span>CHAIN_OF_THOUGHT</span>
                         </button>
-                        {isSectionExpanded(signal.id, 'chain_of_thought') && signal.rawResponse && (
+                        {isSectionExpanded(signal.id, 'chain_of_thought') && (signal.reasoningContent || signal.rawResponse) && (
                           <div className="mt-2 p-3 bg-blue-50 rounded text-xs whitespace-pre-wrap max-h-96 overflow-y-auto custom-scrollbar text-gray-800">
-                            {signal.rawResponse}
+                            {signal.reasoningContent || signal.rawResponse}
                           </div>
                         )}
                       </div>
@@ -981,11 +1071,19 @@ export default function Dashboard() {
                                     </div>
                                   </div>
                                 )}
-                                {decision.justification && (
+                                {(decision.justification || decision.rationale) && (
                                   <div className="mt-3 pt-2">
                                     <div className="text-gray-600 font-bold mb-1 text-xs">JUSTIFICATION</div>
                                     <div className="p-2 bg-white rounded text-gray-800">
-                                      {decision.justification}
+                                      {decision.justification || decision.rationale}
+                                    </div>
+                                  </div>
+                                )}
+                                {decision.exit_plan && decision.exit_plan !== 'N/A' && (
+                                  <div className="mt-3 pt-2">
+                                    <div className="text-gray-600 font-bold mb-1 text-xs">EXIT PLAN</div>
+                                    <div className="p-2 bg-blue-50 rounded text-gray-800">
+                                      {decision.exit_plan}
                                     </div>
                                   </div>
                                 )}

@@ -27,8 +27,9 @@ async function getTestModeSettings() {
       db.collection('settings').doc('test_balance').get(),
     ]);
 
-    const isTestMode = testModeDoc.exists() && (testModeDoc.data().value === true || testModeDoc.data().value === 'true');
-    const initialBalance = testBalanceDoc.exists() ? parseFloat(testBalanceDoc.data().value) || 10000 : 10000;
+    // Firebase Admin SDK uses .exists (property) not .exists() (method)
+    const isTestMode = testModeDoc.exists && (testModeDoc.data().value === true || testModeDoc.data().value === 'true');
+    const initialBalance = testBalanceDoc.exists ? parseFloat(testBalanceDoc.data().value) || 10000 : 10000;
 
     return { isTestMode, initialBalance };
   } catch (error) {
@@ -44,7 +45,8 @@ async function getTestPortfolio() {
   try {
     const portfolioDoc = await db.collection('test_portfolio').doc('current').get();
     
-    if (!portfolioDoc.exists()) {
+    // Firebase Admin SDK uses .exists (property) not .exists() (method)
+    if (!portfolioDoc.exists) {
       const { initialBalance } = await getTestModeSettings();
       const initialPortfolio = {
         accountValue: initialBalance,
@@ -70,7 +72,8 @@ async function getTestPortfolio() {
 async function getWalletAddress() {
   try {
     const settingsDoc = await db.collection('settings').doc('wallet').get();
-    return settingsDoc.exists() ? settingsDoc.data().value : null;
+    // Firebase Admin SDK uses .exists (property) not .exists() (method)
+    return settingsDoc.exists ? settingsDoc.data().value : null;
   } catch (error) {
     console.error('Error getting wallet address:', error);
     return null;
@@ -143,7 +146,8 @@ async function fetchMarketDataFromAPI(coins) {
 async function getCachedMarketData() {
   try {
     const cacheDoc = await db.collection('market_data').doc('latest').get();
-    if (cacheDoc.exists()) {
+    // Firebase Admin SDK uses .exists (property) not .exists() (method)
+    if (cacheDoc.exists) {
       const cacheData = cacheDoc.data();
       const cacheTimestamp = cacheData.timestamp ? new Date(cacheData.timestamp).getTime() : 0;
       const now = Date.now();
@@ -234,57 +238,21 @@ async function generateSignal(accountInfo, positions, marketData, isTestMode) {
     let prompt = '';
     try {
       const promptDoc = await db.collection('settings').doc('trading_prompt').get();
-      prompt = promptDoc.exists() ? promptDoc.data().value : '';
+      // Firebase Admin SDK uses .exists (property) not .exists() (method)
+      prompt = promptDoc.exists ? promptDoc.data().value : '';
     } catch (e) {
       console.warn('Could not load prompt from Firestore, using default');
     }
 
-    // Default prompt template
-    const DEFAULT_PROMPT = `You are a rigorous QUANTITATIVE TRADER and interdisciplinary MATHEMATICIAN-ENGINEER optimizing risk-adjusted returns for perpetual futures on Hyperliquid under real execution, margin, and funding constraints.
+    // ULTRA-SIMPLIFIED prompt - reasoner model needs shorter prompts (TESTED AND WORKING)
+    const DEFAULT_PROMPT = `Trading signals for BTC, ETH, SOL, XRP, DOGE, BNB.
 
-You will receive market + account context for multiple assets (BTC, ETH, SOL, XRP, DOGE, BNB), including:
-- Account Information: {account_info}
-- Current Positions: {positions}
-- Market Data: {market_data}
+Account: {account_info}
+Positions: {positions}  
+Market: {market_data}
 
-Your goal: make decisive, first-principles decisions per asset that minimize churn while capturing edge.
-
-Aggressively pursue setups where calculated risk is outweighed by expected edge; size positions so downside is controlled while upside remains meaningful.
-
-CORE POLICY (Low-Churn, Position-Aware):
-1) RESPECT PRIOR PLANS: If an active trade has an exit_plan with explicit invalidation, DO NOT close or flip early unless that invalidation has occurred.
-2) HYSTERESIS: Require stronger evidence to CHANGE a decision than to keep it.
-3) COOLDOWN: After opening, adding, reducing, or flipping a position, impose a self-cooldown of at least 15 minutes before another direction change.
-4) FUNDING IS A TILT, NOT A TRIGGER: Do NOT open/close/flip solely due to funding.
-5) OVERBOUGHT/OVERSOLD ≠ REVERSAL: Treat extreme RSI/indicators as risk-of-pullback signals.
-6) PREFER ADJUSTMENTS OVER EXITS: If the thesis weakens but is not invalidated, first consider tightening stops or reducing size.
-
-DECISION DISCIPLINE (Per Asset):
-- Choose one: LONG / SHORT / HOLD
-- Control position size via notional USD
-- TP/SL Sanity: LONG: profit_target > current_price, stop_loss < current_price. SHORT: profit_target < current_price, stop_loss > current_price.
-- exit_plan must include at least ONE explicit invalidation trigger
-
-LEVERAGE POLICY: Use leverage between 10x-20x to optimize returns. Never exceed 20x total leverage across all positions.
-
-RISK MANAGEMENT: Maximum position size: Never risk more than 5% of account value on a single trade.
-
-OUTPUT FORMAT: For each coin (BTC, ETH, SOL, XRP, DOGE, BNB), provide your trading decision in JSON format:
-{
-  "COIN": {
-    "side": "LONG" or "SHORT" or "HOLD",
-    "leverage": 10-20,
-    "notional": position size in USD,
-    "profit_target": target price (or null),
-    "stop_loss": stop loss price (or null),
-    "invalidation_condition": specific condition to invalidate the trade (REQUIRED),
-    "exit_plan": detailed exit strategy with cooldown and invalidation triggers (REQUIRED),
-    "rationale": brief explanation of the decision,
-    "unrealized_pnl": current unrealized P&L if position exists
-  }
-}
-
-Return only valid JSON, no additional text or markdown.`;
+Output JSON only at the end:
+{"BTC":{"side":"HOLD","leverage":10,"notional":0},"ETH":{"side":"HOLD","leverage":10,"notional":0},"SOL":{"side":"SHORT","leverage":15,"notional":300},"XRP":{"side":"SHORT","leverage":12,"notional":250},"DOGE":{"side":"HOLD","leverage":10,"notional":0},"BNB":{"side":"HOLD","leverage":10,"notional":0}}`;
 
     // Replace placeholders in prompt
     const basePrompt = prompt || DEFAULT_PROMPT;
@@ -293,23 +261,23 @@ Return only valid JSON, no additional text or markdown.`;
       .replace('{positions}', JSON.stringify(positions, null, 2))
       .replace('{market_data}', JSON.stringify(marketData, null, 2));
 
-    // Call DeepSeek API
+    // Call DeepSeek API with reasoner model
     const deepseekResponse = await axios.post(
       DEEPSEEK_API_URL,
       {
-        model: 'deepseek-chat',
+        model: 'deepseek-reasoner',
         messages: [
           {
             role: 'system',
-            content: 'You are a quantitative trading AI. Return only valid JSON with trading signals.',
+            content: 'You are a quantitative trading AI. After analyzing, you MUST output ONLY a valid JSON object. The JSON must be the very last thing in your response. No text after the JSON.',
           },
           {
             role: 'user',
-            content: userPrompt,
+            content: userPrompt + '\n\nCRITICAL INSTRUCTIONS:\n1. Think through your analysis in the reasoning\n2. At the END, output ONLY the JSON object\n3. The JSON must be complete and valid\n4. Do NOT add any text after the JSON\n5. The JSON must be the absolute last thing in your response',
           },
         ],
-        temperature: 0.7,
-        max_tokens: 4000,
+        temperature: 0.3, // Lower temperature for more consistent output
+        max_tokens: 8000, // Increased tokens significantly - reasoner needs more room (TESTED)
       },
       {
         headers: {
@@ -320,27 +288,111 @@ Return only valid JSON, no additional text or markdown.`;
       }
     );
 
-    const aiResponse = deepseekResponse.data.choices[0].message.content;
+    const choice = deepseekResponse.data.choices[0];
+    const aiContent = choice.message.content || '';
+    const reasoningContent = choice.message.reasoning_content || '';
+    
+    console.log('📝 Response structure:', {
+      hasContent: !!aiContent,
+      hasReasoning: !!reasoningContent,
+      contentLength: aiContent.length,
+      reasoningLength: reasoningContent.length,
+    });
+    
+    // Combine content and reasoning for display
+    const fullResponse = reasoningContent 
+      ? `${reasoningContent}\n\n${aiContent}`.trim()
+      : aiContent;
     
     // Parse JSON from response
     let jsonData;
+    let parseSource = 'unknown';
+    
+    // If reasoning model returns empty content, extract JSON from reasoning_content
+    const textToParse = aiContent || reasoningContent;
+    
+    if (!textToParse) {
+      throw new Error('Both content and reasoning_content are empty');
+    }
+    
+    // Try multiple extraction methods
     try {
-      jsonData = JSON.parse(aiResponse);
-    } catch (e) {
-      const jsonMatch = aiResponse.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
-      if (jsonMatch) {
-        jsonData = JSON.parse(jsonMatch[1]);
-      } else {
-        const objectMatch = aiResponse.match(/\{[\s\S]*\}/);
-        if (objectMatch) {
-          jsonData = JSON.parse(objectMatch[0]);
-        } else {
-          throw new Error('Could not extract JSON from response');
+      // Method 1: Direct JSON parse
+      jsonData = JSON.parse(textToParse);
+      parseSource = 'direct';
+      console.log('✅ JSON parsed successfully (direct parse)');
+    } catch (e1) {
+      try {
+        // Method 2: Extract from markdown code blocks
+        const jsonMatch = textToParse.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+        if (jsonMatch) {
+          jsonData = JSON.parse(jsonMatch[1]);
+          parseSource = 'markdown';
+          console.log('✅ JSON parsed successfully (from markdown)');
+        }
+      } catch (e2) {
+        // Continue
+      }
+      
+      if (!jsonData) {
+        try {
+          // Method 3: Find last complete JSON object (for reasoning model that puts JSON at end)
+          const allMatches = textToParse.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g);
+          if (allMatches && allMatches.length > 0) {
+            // Try from last match backwards (reasoning model typically puts final answer at end)
+            for (let i = allMatches.length - 1; i >= 0; i--) {
+              try {
+                const parsed = JSON.parse(allMatches[i]);
+                // Verify it's a trading signal object (should have coin keys)
+                const keys = Object.keys(parsed);
+                if (keys.length > 0 && keys.some(k => ['BTC', 'ETH', 'SOL', 'XRP', 'DOGE', 'BNB'].includes(k))) {
+                  jsonData = parsed;
+                  parseSource = `json-object-${i}`;
+                  console.log(`✅ JSON parsed successfully (object match #${i})`);
+                  break;
+                }
+              } catch (parseErr) {
+                // Try next match
+              }
+            }
+          }
+        } catch (e3) {
+          // Continue
+        }
+      }
+      
+      if (!jsonData) {
+        // Method 4: Extract everything between first { and last } and try to parse
+        const firstBrace = textToParse.indexOf('{');
+        const lastBrace = textToParse.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          try {
+            const extracted = textToParse.substring(firstBrace, lastBrace + 1);
+            jsonData = JSON.parse(extracted);
+            parseSource = 'brace-extraction';
+            console.log('✅ JSON parsed successfully (brace extraction)');
+          } catch (e4) {
+            // Final attempt failed
+          }
         }
       }
     }
+    
+    if (!jsonData) {
+      console.error('❌ Failed to parse JSON from response');
+      console.error('Content:', aiContent.substring(0, 1000));
+      console.error('Reasoning:', reasoningContent.substring(0, 1000));
+      throw new Error('Could not extract valid JSON from response');
+    }
+    
+    console.log(`✅ JSON extracted from: ${parseSource}`);
 
-    return { signal: jsonData, rawResponse: aiResponse };
+    return { 
+      signal: jsonData, 
+      rawResponse: fullResponse,
+      reasoningContent: reasoningContent,
+      content: aiContent
+    };
   } catch (error) {
     console.error('Error generating signal:', error.message);
     throw error;
@@ -350,7 +402,7 @@ Return only valid JSON, no additional text or markdown.`;
 /**
  * Save signal to Firestore
  */
-async function saveSignal(signal, rawResponse, userPrompt, accountInfo, positions, marketData, isTestMode, tradeExecution = null) {
+async function saveSignal(signal, rawResponse, userPrompt, accountInfo, positions, marketData, isTestMode, tradeExecution = null, reasoningContent = null, content = null) {
   try {
     const now = new Date();
     const timestamp = admin.firestore.Timestamp.fromDate(now);
@@ -371,6 +423,8 @@ async function saveSignal(signal, rawResponse, userPrompt, accountInfo, position
       walletAddress: isTestMode ? 'TEST_MODE' : null,
       signal,
       rawResponse,
+      reasoningContent: reasoningContent || null,
+      content: content || null,
       userPrompt,
       accountInfo,
       positions,
@@ -379,6 +433,7 @@ async function saveSignal(signal, rawResponse, userPrompt, accountInfo, position
       timestamp,
       timestampString,
       tradeExecution: tradeExecution || { executed: false },
+      model: 'deepseek-reasoner',
     };
 
     // Save to appropriate collection
@@ -683,8 +738,12 @@ async function sendTelegramNotification(message) {
 /**
  * Scheduled Cloud Function - Runs every 5 minutes
  */
-exports.generateTradingSignal = functions.pubsub
-  .schedule('*/5 * * * *') // Every 5 minutes
+exports.generateTradingSignal = functions
+  .runWith({
+    timeoutSeconds: 540, // 9 minutes timeout (DeepSeek can take up to 3 minutes, plus processing time)
+    memory: '512MB', // Increase memory for better performance
+  })
+  .pubsub.schedule('*/5 * * * *') // Every 5 minutes
   .timeZone('UTC')
   .onRun(async (context) => {
     console.log('🚀 [Firebase Cron] Starting scheduled signal generation...');
@@ -763,8 +822,8 @@ exports.generateTradingSignal = functions.pubsub
       }
 
       // Generate signal
-      console.log('🤖 [Firebase Cron] Generating signal with DeepSeek...');
-      const { signal, rawResponse } = await generateSignal(accountInfo, positions, marketData, isTestMode);
+      console.log('🤖 [Firebase Cron] Generating signal with DeepSeek Reasoner...');
+      const { signal, rawResponse, reasoningContent, content } = await generateSignal(accountInfo, positions, marketData, isTestMode);
       console.log('✅ [Firebase Cron] Signal generated');
 
       // Prepare user prompt for saving
@@ -784,7 +843,7 @@ exports.generateTradingSignal = functions.pubsub
       }
 
       // Save signal to Firestore with trade execution data
-      await saveSignal(signal, rawResponse, userPrompt, accountInfo, positions, marketData, isTestMode, tradeExecution);
+      await saveSignal(signal, rawResponse, userPrompt, accountInfo, positions, marketData, isTestMode, tradeExecution, reasoningContent, content);
 
       // Send Telegram notification
       console.log('📱 [Firebase Cron] Sending Telegram notification...');

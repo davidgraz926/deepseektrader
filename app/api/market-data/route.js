@@ -7,58 +7,58 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 async function fetchMarketDataFromAPI(coins) {
-  let cmcData = null;
-  
-  // Try to fetch from CoinMarketCap only if API key is available
-  const cmcApiKey = process.env.COINMARKETCAP_API_KEY;
-  if (cmcApiKey && cmcApiKey.trim() !== '') {
-    try {
-      const cmcResponse = await axios.get(
-        'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest',
-        {
-          params: {
-            symbol: coins.join(','),
-            convert: 'USD',
-          },
-          headers: {
-            'X-CMC_PRO_API_KEY': cmcApiKey,
-          },
+    let cmcData = null;
+    
+    // Try to fetch from CoinMarketCap only if API key is available
+    const cmcApiKey = process.env.COINMARKETCAP_API_KEY;
+    if (cmcApiKey && cmcApiKey.trim() !== '') {
+      try {
+        const cmcResponse = await axios.get(
+          'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest',
+          {
+            params: {
+              symbol: coins.join(','),
+              convert: 'USD',
+            },
+            headers: {
+              'X-CMC_PRO_API_KEY': cmcApiKey,
+            },
+          }
+        );
+        cmcData = cmcResponse.data.data;
+      } catch (cmcError) {
+        // Silently fail if CoinMarketCap returns 401 or other errors
+        if (cmcError.response?.status !== 401) {
+          console.error('CoinMarketCap API Error:', cmcError.message);
         }
-      );
-      cmcData = cmcResponse.data.data;
-    } catch (cmcError) {
-      // Silently fail if CoinMarketCap returns 401 or other errors
-      if (cmcError.response?.status !== 401) {
-        console.error('CoinMarketCap API Error:', cmcError.message);
+        // Continue with Binance-only data
       }
-      // Continue with Binance-only data
     }
-  }
 
-  // Fetch from Binance (primary data source)
-  const binanceData = {};
-  for (const coin of coins) {
-    try {
-      const symbol = coin === 'BTC' ? 'BTCUSDT' : `${coin}USDT`;
-      const binanceResponse = await axios.get(
-        `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`,
-        { timeout: 5000 } // 5 second timeout
-      );
-      binanceData[coin] = {
-        price: parseFloat(binanceResponse.data.lastPrice),
-        volume24h: parseFloat(binanceResponse.data.volume),
-        change24h: parseFloat(binanceResponse.data.priceChangePercent),
-        high24h: parseFloat(binanceResponse.data.highPrice),
-        low24h: parseFloat(binanceResponse.data.lowPrice),
-      };
-    } catch (err) {
-      console.error(`Error fetching ${coin} from Binance:`, err.message);
-      // Continue with other coins even if one fails
+    // Fetch from Binance (primary data source)
+    const binanceData = {};
+    for (const coin of coins) {
+      try {
+        const symbol = coin === 'BTC' ? 'BTCUSDT' : `${coin}USDT`;
+        const binanceResponse = await axios.get(
+          `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`,
+          { timeout: 5000 } // 5 second timeout
+        );
+        binanceData[coin] = {
+          price: parseFloat(binanceResponse.data.lastPrice),
+          volume24h: parseFloat(binanceResponse.data.volume),
+          change24h: parseFloat(binanceResponse.data.priceChangePercent),
+          high24h: parseFloat(binanceResponse.data.highPrice),
+          low24h: parseFloat(binanceResponse.data.lowPrice),
+        };
+      } catch (err) {
+        console.error(`Error fetching ${coin} from Binance:`, err.message);
+        // Continue with other coins even if one fails
+      }
     }
-  }
 
   return {
-    binance: binanceData,
+      binance: binanceData,
     coinmarketcap: cmcData,
   };
 }
