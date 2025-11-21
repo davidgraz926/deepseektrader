@@ -1,4 +1,4 @@
-# DeepSeek Trader
+1# DeepSeek Trader
 
 An AI-powered cryptocurrency trading assistant that uses DeepSeek API to analyze market data and generate trading signals, which are then sent to a Telegram bot for execution on Hyperliquid.
 
