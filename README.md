@@ -1,36 +1,154 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# DeepSeek Trader
 
-## Getting Started
+An AI-powered cryptocurrency trading assistant that uses DeepSeek API to analyze market data and generate trading signals, which are then sent to a Telegram bot for execution on Hyperliquid.
 
-First, run the development server:
+## Features
+
+- 🤖 **DeepSeek AI Integration**: Chat interface with DeepSeek API
+- 📊 **Status Dashboard**: View account information, positions, and market data
+- ⚙️ **Settings Management**: Easy configuration of wallet address, prompts, and Telegram bot
+- 🔄 **Automated Signal Generation**: Runs every 5 minutes to fetch data and generate trading signals
+- 📱 **Telegram Integration**: Sends trading signals to Telegram bot
+- 💰 **Hyperliquid Integration**: Fetches positions and account data from Hyperliquid
+
+## Setup
+
+### 1. Install Dependencies
+
+```bash
+npm install
+```
+
+### 2. Configure Environment Variables
+
+Create a `.env.local` file in the root directory:
+
+```env
+DEEPSEEK_API_KEY=sk-ba2ff135a0ab48218d88c776e41b32f0
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
+TELEGRAM_CHAT_ID=your_telegram_chat_id_here
+COINMARKETCAP_API_KEY=your_coinmarketcap_api_key_here (optional)
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+CRON_SECRET=your_random_secret_here
+```
+
+### 3. Firebase Setup
+
+The Firebase configuration is already set up in `lib/firebase.js`. Make sure your Firebase project has Firestore enabled.
+
+### 4. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## Usage
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 1. Configure Settings
 
-## Learn More
+1. Go to the **Settings** page
+2. Enter your Hyperliquid wallet address
+3. Configure your trading prompt (use `{account_info}`, `{positions}`, and `{market_data}` as placeholders)
+4. Set up Telegram bot token and chat ID
+5. Click **Save Settings**
 
-To learn more about Next.js, take a look at the following resources:
+### 2. View Status
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Visit the **Status** page to see:
+- Account summary (total return, available cash, account value)
+- Current positions
+- Market data for tradable coins
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 3. Chat with AI
 
-## Deploy on Vercel
+Use the main chat interface to interact with the DeepSeek AI assistant.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 4. Automated Signal Generation
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The system automatically:
+- Fetches account and position data from Hyperliquid
+- Fetches market data from Binance/CoinMarketCap
+- Sends the data to DeepSeek API with your configured prompt
+- Receives trading signals in JSON format
+- Sends signals to your Telegram bot
+
+## Cron Job Setup
+
+### Option 1: Vercel (Recommended for Production)
+
+If deploying to Vercel, the `vercel.json` file is already configured. Just make sure to set the `CRON_SECRET` environment variable in Vercel.
+
+### Option 2: Local/Other Hosting
+
+Run the cron script locally:
+
+```bash
+node scripts/cron.js
+```
+
+Or use a process manager like PM2:
+
+```bash
+pm2 start scripts/cron.js --name deepseek-cron
+```
+
+### Option 3: External Cron Service
+
+Use services like:
+- GitHub Actions (with scheduled workflows)
+- EasyCron
+- Cron-job.org
+
+Set them to call: `https://your-domain.com/api/cron` with the Authorization header: `Bearer YOUR_CRON_SECRET`
+
+## API Endpoints
+
+- `POST /api/deepseek/chat` - Chat with DeepSeek API
+- `GET /api/market-data` - Fetch market data from Binance/CoinMarketCap
+- `GET /api/positions?address=WALLET_ADDRESS` - Get positions from Hyperliquid
+- `POST /api/generate-signal` - Generate trading signal
+- `POST /api/telegram/send` - Send message to Telegram
+- `GET /api/cron` - Cron job endpoint (runs every 5 minutes)
+- `GET /api/settings?key=KEY` - Get setting value
+- `POST /api/settings` - Save setting value
+
+## Project Structure
+
+```
+├── app/
+│   ├── api/              # API routes
+│   ├── status/           # Status page
+│   ├── settings/         # Settings page
+│   ├── page.js          # Home/chat page
+│   └── layout.js        # Root layout
+├── lib/
+│   ├── firebase.js      # Firebase configuration
+│   └── config.js        # App configuration
+├── scripts/
+│   └── cron.js          # Local cron job script
+└── vercel.json          # Vercel cron configuration
+```
+
+## Technologies Used
+
+- **Next.js 16** - React framework
+- **Firebase** - Database and storage
+- **DeepSeek API** - AI chat completions
+- **Binance API** - Market data
+- **Hyperliquid API** - Trading positions
+- **Telegram Bot API** - Signal notifications
+- **Tailwind CSS** - Styling
+
+## Notes
+
+- The system fetches data every 5 minutes automatically
+- Make sure your Telegram bot has the necessary permissions
+- The prompt can be customized in the Settings page
+- All signals are saved to Firebase for historical tracking
+
+## License
+
+MIT
+# deepseektrader
