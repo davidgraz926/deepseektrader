@@ -6,12 +6,19 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "cron": "node scripts/cron.js"
   },
   "dependencies": {
+    "axios": "^1.13.2",
+    "firebase": "^12.6.0",
+    "hyperliquid": "^1.7.7",
     "next": "16.0.3",
+    "node-cron": "^4.2.1",
     "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "react-dom": "19.2.0",
+    "react-icons": "^5.5.0",
+    "recharts": "^3.4.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
