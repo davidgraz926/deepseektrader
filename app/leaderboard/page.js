@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { FiActivity, FiSettings, FiTrendingUp, FiTrendingDown, FiBarChart2, FiRefreshCw, FiAward, FiTarget, FiDollarSign } from 'react-icons/fi';
 
 export default function Leaderboard() {
@@ -28,19 +29,19 @@ export default function Leaderboard() {
   const loadLeaderboardData = async () => {
     try {
       setLoading(true);
-      
+
       // Load trades for stats calculation
       const tradesRes = await fetch('/api/trades?limit=1000');
       const tradesData = await tradesRes.json();
-      
+
       // Load signals for the table
       const signalsRes = await fetch('/api/signals?limit=100');
       const signalsData = await signalsRes.json();
-      
+
       if (signalsData.success && signalsData.data) {
         setSignals(signalsData.data);
       }
-      
+
       if (tradesData.success && tradesData.data) {
         calculateStats(tradesData.data);
       }
@@ -54,23 +55,23 @@ export default function Leaderboard() {
   const calculateStats = (tradesData) => {
     // Filter only CLOSE trades (which have PnL)
     const closedTrades = tradesData.filter(t => t.type === 'CLOSE' && t.pnl !== undefined);
-    
+
     let totalPnL = 0;
     let winningTrades = 0;
     let losingTrades = 0;
     let wins = [];
     let losses = [];
-    
+
     closedTrades.forEach(trade => {
       const pnl = trade.pnl || 0;
-        totalPnL += pnl;
-        
-        if (pnl > 0) {
-          winningTrades++;
-          wins.push(pnl);
-        } else if (pnl < 0) {
-          losingTrades++;
-          losses.push(pnl);
+      totalPnL += pnl;
+
+      if (pnl > 0) {
+        winningTrades++;
+        wins.push(pnl);
+      } else if (pnl < 0) {
+        losingTrades++;
+        losses.push(pnl);
       }
     });
 
@@ -116,17 +117,29 @@ export default function Leaderboard() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                <FiActivity className="w-5 h-5 text-white" />
+              <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center overflow-hidden">
+                <Image
+                  src="/deepseek_logo.png"
+                  alt="DeepSeek"
+                  width={32}
+                  height={32}
+                  className="object-contain"
+                />
               </div>
               <h1 className="text-xl font-bold text-gray-900">DeepSeek Trader</h1>
             </div>
             <div className="flex items-center space-x-2">
-              <Link href="/" className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-100 text-sm font-medium transition-all">
+              <Link
+                href="/"
+                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-100 text-sm font-medium transition-all"
+              >
                 <FiActivity className="w-4 h-4" />
                 <span>Dashboard</span>
               </Link>
-              <Link href="/settings" className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-100 text-sm font-medium transition-all">
+              <Link
+                href="/settings"
+                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-100 text-sm font-medium transition-all"
+              >
                 <FiSettings className="w-4 h-4" />
                 <span>Settings</span>
               </Link>
@@ -218,9 +231,8 @@ export default function Leaderboard() {
             <button
               onClick={loadLeaderboardData}
               disabled={loading}
-              className={`flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-semibold text-gray-700 transition-all ${
-                loading ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
+              className={`flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-semibold text-gray-700 transition-all ${loading ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
             >
               <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
@@ -332,50 +344,49 @@ export default function Leaderboard() {
                       } else {
                         timestamp = new Date();
                       }
-                      
+
                       if (isNaN(timestamp.getTime())) {
                         timestamp = new Date();
                       }
                     } catch (e) {
                       timestamp = new Date();
                     }
-                    
+
                     // Calculate return percentage
                     const accountValue = signal.accountInfo?.accountValue || 0;
                     const totalReturn = signal.accountInfo?.totalReturn || 0;
                     const returnPercent = accountValue > 0 ? (totalReturn / (accountValue - totalReturn)) * 100 : 0;
-                    
+
                     // Count positions
                     const positionsCount = signal.positions?.length || signal.accountInfo?.positions?.length || 0;
-                    
+
                     return (
                       <tr key={signal.id || idx} className="hover:bg-blue-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          {timestamp.toLocaleString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric', 
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                          {timestamp.toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
                             year: 'numeric',
-                            hour: '2-digit', 
-                            minute: '2-digit' 
+                            hour: '2-digit',
+                            minute: '2-digit'
                           })}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                           {accountValue > 0 ? formatCurrency(accountValue) : formatCurrency(1000)}
-                      </td>
-                      <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${
-                          returnPercent >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                        </td>
+                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${returnPercent >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
                           {returnPercent !== 0 ? formatPercent(returnPercent) : '0.00%'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                           {positionsCount}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
-                          Executed
-                        </span>
-                      </td>
-                    </tr>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                            Executed
+                          </span>
+                        </td>
+                      </tr>
                     );
                   })}
                 </tbody>
