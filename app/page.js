@@ -15,7 +15,7 @@ const CustomTooltip = ({ active, payload, label }) => {
           {new Intl.NumberFormat('en-US', {
             style: 'currency',
             currency: 'USD',
-            minimumFractionDigits: 2,#
+            minimumFractionDigits: 2,
           }).format(payload[0].value)}
         </p>
       </div>
