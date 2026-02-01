@@ -142,4 +142,4 @@ The cron functionality has been fully migrated to Firebase Cloud Functions. Lega
 ## License
 
 MIT
-# deepseektrader
+    # deepseektrader
