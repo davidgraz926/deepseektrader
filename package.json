@@ -1,13 +1,21 @@
 {
-  "name": "deepseek-trader",
-  "version": "0.1.0",
+  "name": "clawdbot",
+  "version": "1.0.0",
+  "description": "AI-Powered Trading Bot - Easy install, zero Firebase required",
   "private": true,
+  "type": "module",
+  "bin": {
+    "clawdbot": "./cli/start.js"
+  },
   "scripts": {
-    "dev": "next dev",
+    "clawdbot": "node cli/start.js",
+    "setup": "node cli/setup.js",
+    "dev": "node cli/start.js --dev",
     "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "cron": "echo '⚠️ Cron jobs are now handled by Firebase Cloud Functions. See FIREBASE_FUNCTIONS_SETUP.md'"
+    "start": "node cli/start.js",
+    "next:dev": "next dev",
+    "next:start": "next start",
+    "lint": "eslint"
   },
   "dependencies": {
     "axios": "^1.13.2",

@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { executeAutoTrades } from '@/lib/tradeExecutor';
 import { getTestModeSettings, executeSimulatedTrade } from '@/lib/simulationEngine';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
+import db from '@/lib/db';
 
-// Save signal to Firebase after DeepSeek responds
+// Save signal after DeepSeek responds
 export async function POST(request) {
   try {
+    await db.ensureInit();
+
     const {
       walletAddress,
       signal,
@@ -26,7 +27,7 @@ export async function POST(request) {
 
     // Execute trades
     let tradeExecution = { executed: false, reason: 'Auto trading disabled' };
-    
+
     if (finalIsTestMode) {
       // Execute simulated trade
       try {
@@ -55,17 +56,15 @@ export async function POST(request) {
       }
     }
 
-    // Save to Firebase
+    // Save to database
     const timestamp = new Date().toISOString();
-    const timestampObj = Timestamp.now();
     const collectionName = finalIsTestMode ? 'test_signals' : 'signals';
-    
     const docId = timestamp.replace(/[:.]/g, '-').replace('T', '-').replace('Z', '');
-    
-    console.log(`💾 Saving signal to ${collectionName} with ID: ${docId}`);
-    
+
+    console.log(`Saving signal to ${collectionName} with ID: ${docId}`);
+
     const signalData = {
-      timestamp: timestampObj,
+      timestamp: timestamp,
       timestampString: timestamp,
       walletAddress: finalIsTestMode ? 'TEST_MODE' : walletAddress,
       signal,
@@ -80,17 +79,9 @@ export async function POST(request) {
       isTestMode: finalIsTestMode,
       model: 'deepseek-reasoner',
     };
-    
-    await setDoc(doc(db, collectionName, docId), signalData);
-    console.log(`✅ Signal saved successfully to ${collectionName} collection with ID: ${docId}`);
-    
-    // Verify the save
-    const verifyDoc = await getDoc(doc(db, collectionName, docId));
-    if (verifyDoc.exists()) {
-      console.log(`✅ Verification: Document exists in ${collectionName}`);
-    } else {
-      console.error(`❌ Verification failed: Document NOT found after save!`);
-    }
+
+    await db.setDoc(collectionName, docId, signalData);
+    console.log(`Signal saved successfully to ${collectionName}`);
 
     return NextResponse.json({
       success: true,
@@ -111,4 +102,3 @@ export async function POST(request) {
     );
   }
 }
-

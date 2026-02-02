@@ -1,30 +1,27 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } from '@/lib/config';
-import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import db from '@/lib/db';
 
 export async function POST(request) {
   try {
+    await db.ensureInit();
+
     const { message, signal } = await request.json();
 
-    // Try to get from environment variables first, then Firebase
+    // Try to get from environment variables first, then settings
     let botToken = TELEGRAM_BOT_TOKEN;
     let chatId = TELEGRAM_CHAT_ID;
 
     if (!botToken || !chatId) {
-      // Try to get from Firebase
-      const [tokenDoc, chatDoc] = await Promise.all([
-        getDoc(doc(db, 'settings', 'telegram_bot_token')),
-        getDoc(doc(db, 'settings', 'telegram_chat_id')),
+      // Try to get from settings
+      const [savedToken, savedChatId] = await Promise.all([
+        db.getSetting('telegram_bot_token'),
+        db.getSetting('telegram_chat_id'),
       ]);
 
-      if (tokenDoc.exists()) {
-        botToken = tokenDoc.data().value;
-      }
-      if (chatDoc.exists()) {
-        chatId = chatDoc.data().value;
-      }
+      if (savedToken) botToken = savedToken;
+      if (savedChatId) chatId = savedChatId;
     }
 
     if (!botToken || !chatId) {
@@ -35,12 +32,11 @@ export async function POST(request) {
     }
 
     // Check if test mode is enabled
-    const testModeDoc = await getDoc(doc(db, 'settings', 'test_mode'));
-    const isTestMode = testModeDoc.exists() && (testModeDoc.data().value === true || testModeDoc.data().value === 'true');
-    
-    const modePrefix = isTestMode ? '🧪 TEST MODE: ' : '';
+    const isTestMode = await db.getSetting('test_mode');
+
+    const modePrefix = isTestMode ? 'TEST MODE: ' : '';
     let text = modePrefix + (message || 'New trading signal received:');
-    
+
     if (signal) {
       text += '\n\n' + JSON.stringify(signal, null, 2);
     }
@@ -69,4 +65,3 @@ export async function POST(request) {
     );
   }
 }
-
