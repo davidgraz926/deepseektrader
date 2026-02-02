@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
-import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import db from '@/lib/db';
 import { getTestModeSettings, updateTestPortfolioPrices } from '@/lib/simulationEngine';
 
-// ⚠️ DEPRECATED: This endpoint is no longer used. Cron jobs are now handled by Firebase Cloud Functions.
-// This endpoint is kept for backward compatibility but will not be called automatically.
-// See FIREBASE_FUNCTIONS_SETUP.md for the new cron implementation.
+// Cron endpoint - can be called by external scheduler or internal cron
 export async function GET(request) {
   try {
+    await db.ensureInit();
+
     // Verify cron secret if needed
     const authHeader = request.headers.get('authorization');
     if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -17,12 +16,11 @@ export async function GET(request) {
 
     // Check if test mode is enabled
     const { isTestMode } = await getTestModeSettings();
-    
+
     let walletAddress = null;
     if (!isTestMode) {
-      // Get wallet address from Firebase (only needed for live mode)
-      const settingsDoc = await getDoc(doc(db, 'settings', 'wallet'));
-      walletAddress = settingsDoc.exists() ? settingsDoc.data().value : null;
+      // Get wallet address from settings (only needed for live mode)
+      walletAddress = await db.getSetting('wallet');
 
       if (!walletAddress) {
         return NextResponse.json({
@@ -49,7 +47,7 @@ export async function GET(request) {
       const marketResponse = await axios.get(`${baseUrl}/api/market-data?force=true`);
       if (marketResponse.data.success) {
         console.log('Market data refreshed and cached');
-        
+
         // If test mode, update portfolio prices
         if (isTestMode) {
           try {
@@ -66,12 +64,11 @@ export async function GET(request) {
     // Send to Telegram
     try {
       await axios.post(`${baseUrl}/api/telegram/send`, {
-        message: isTestMode ? '🧪 TEST MODE: New trading signal generated' : 'New trading signal generated',
+        message: isTestMode ? 'TEST MODE: New trading signal generated' : 'New trading signal generated',
         signal,
       });
     } catch (telegramError) {
       console.error('Telegram send failed:', telegramError.message);
-      // Don't fail the whole request if Telegram fails
     }
 
     return NextResponse.json({
@@ -91,4 +88,3 @@ export async function GET(request) {
     );
   }
 }
-

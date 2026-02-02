@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import db from '@/lib/db';
 
 export async function GET(request) {
   try {
+    await db.ensureInit();
+
     const { searchParams } = new URL(request.url);
     const key = searchParams.get('key');
 
@@ -14,20 +15,12 @@ export async function GET(request) {
       );
     }
 
-    const docRef = doc(db, 'settings', key);
-    const docSnap = await getDoc(docRef);
+    const value = await db.getSetting(key);
 
-    if (docSnap.exists()) {
-      return NextResponse.json({
-        success: true,
-        value: docSnap.data().value,
-      });
-    } else {
-      return NextResponse.json({
-        success: true,
-        value: null,
-      });
-    }
+    return NextResponse.json({
+      success: true,
+      value: value,
+    });
   } catch (error) {
     console.error('Settings GET Error:', error.message);
     return NextResponse.json(
@@ -42,6 +35,8 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
+    await db.ensureInit();
+
     const { key, value } = await request.json();
 
     if (!key) {
@@ -51,11 +46,7 @@ export async function POST(request) {
       );
     }
 
-    const docRef = doc(db, 'settings', key);
-    await setDoc(docRef, {
-      value: value || '',
-      updatedAt: new Date().toISOString(),
-    });
+    await db.setSetting(key, value || '');
 
     return NextResponse.json({
       success: true,
@@ -72,4 +63,3 @@ export async function POST(request) {
     );
   }
 }
-
