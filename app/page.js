@@ -304,8 +304,18 @@ export default function Dashboard() {
                         dy={10}
                         minTickGap={50}
                         tickFormatter={(val) => {
-                          // Assuming val is "MM/DD HH:MM"
-                          // Convert to "Nov 20 02:07" format if possible, or just keep as is
+                          if (!val) return '';
+                          // Convert "MM/DD HH:MM" to "Nov 20 02:07" format
+                          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                          const match = val.match(/^(\d{1,2})\/(\d{1,2})\s+(\d{2}:\d{2})$/);
+                          if (match) {
+                            const monthIndex = parseInt(match[1], 10) - 1;
+                            const day = match[2];
+                            const time = match[3];
+                            if (monthIndex >= 0 && monthIndex < 12) {
+                              return `${monthNames[monthIndex]} ${day} ${time}`;
+                            }
+                          }
                           return val;
                         }}
                       />

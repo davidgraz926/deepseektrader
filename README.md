@@ -91,13 +91,9 @@ The system automatically:
 - ✅ Free tier covers ~8,640 invocations/month
 - ✅ Easy monitoring in Firebase Console
 
-### ⚠️ Deprecated Options
+### Note on Legacy Cron Options
 
-The following options are no longer needed but kept for reference:
-
-- **Vercel Cron**: No longer used (moved to Firebase)
-- **Local Cron Script**: `scripts/cron.js` - kept for reference only
-- **External Cron Services**: No longer needed
+The cron functionality has been fully migrated to Firebase Cloud Functions. Legacy cron files and endpoints have been removed from the codebase.
 
 ## API Endpoints
 
@@ -106,7 +102,6 @@ The following options are no longer needed but kept for reference:
 - `GET /api/positions?address=WALLET_ADDRESS` - Get positions from Hyperliquid
 - `POST /api/generate-signal` - Generate trading signal
 - `POST /api/telegram/send` - Send message to Telegram
-- `GET /api/cron` - ⚠️ Deprecated: Cron job endpoint (now handled by Firebase Cloud Functions)
 - `GET /api/settings?key=KEY` - Get setting value
 - `POST /api/settings` - Save setting value
 
@@ -122,9 +117,9 @@ The following options are no longer needed but kept for reference:
 ├── lib/
 │   ├── firebase.js      # Firebase configuration
 │   └── config.js        # App configuration
-├── scripts/
-│   └── cron.js          # Local cron job script
-└── vercel.json          # Vercel cron configuration
+├── functions/           # Firebase Cloud Functions
+│   └── index.js         # Cron job and cloud functions
+└── vercel.json          # Vercel configuration
 ```
 
 ## Technologies Used
@@ -147,4 +142,4 @@ The following options are no longer needed but kept for reference:
 ## License
 
 MIT
-# deepseektrader
+    # deepseektrader
