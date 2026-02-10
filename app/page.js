@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { FiActivity, FiSettings, FiTrendingUp, FiTrash2, FiChevronDown, FiChevronRight, FiAlertCircle } from 'react-icons/fi';
+import { FiActivity, FiSettings, FiTrendingUp, FiTrash2, FiChevronDown, FiChevronRight, FiAlertCircle, FiZap } from 'react-icons/fi';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -31,6 +31,7 @@ export default function Dashboard() {
   const [timeframe, setTimeframe] = useState('ALL');
   const [isTestMode, setIsTestMode] = useState(false);
   const [expandedSections, setExpandedSections] = useState({});
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     loadStatus();
@@ -196,6 +197,37 @@ export default function Dashboard() {
     }
   };
 
+  const generateSignal = async () => {
+    if (isGenerating) return;
+    setIsGenerating(true);
+    try {
+      let walletAddress = null;
+      if (!isTestMode) {
+        const settingsRes = await fetch('/api/settings?key=wallet');
+        const settingsData = await settingsRes.json();
+        walletAddress = settingsData.success ? settingsData.value : null;
+      }
+
+      const res = await fetch('/api/generate-signal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        console.error('Signal generation failed:', data.error);
+        alert(`Signal generation failed: ${data.error}`);
+      } else {
+        loadStatus();
+      }
+    } catch (error) {
+      console.error('Error generating signal:', error);
+      alert(`Error generating signal: ${error.message}`);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
       {/* Header */}
@@ -221,6 +253,18 @@ export default function Dashboard() {
                   <span>TEST MODE</span>
                 </div>
               )}
+              <button
+                onClick={generateSignal}
+                disabled={isGenerating}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  isGenerating
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                <FiZap className={`w-4 h-4 ${isGenerating ? 'animate-pulse' : ''}`} />
+                <span>{isGenerating ? 'Generating...' : 'Generate Signal'}</span>
+              </button>
               <Link
                 href="/leaderboard"
                 className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-100 text-sm font-medium transition-all"
