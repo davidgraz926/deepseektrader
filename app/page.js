@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { FiActivity, FiSettings, FiTrendingUp, FiTrash2, FiChevronDown, FiChevronRight, FiAlertCircle } from 'react-icons/fi';
+import { FiActivity, FiSettings, FiTrendingUp, FiTrash2, FiChevronDown, FiChevronRight, FiAlertCircle, FiZap } from 'react-icons/fi';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -31,6 +31,8 @@ export default function Dashboard() {
   const [timeframe, setTimeframe] = useState('ALL');
   const [isTestMode, setIsTestMode] = useState(false);
   const [expandedSections, setExpandedSections] = useState({});
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState(null);
 
   useEffect(() => {
     loadStatus();
@@ -193,6 +195,34 @@ export default function Dashboard() {
       loadStatus();
     } catch (error) {
       console.error('Error deleting signal:', error);
+    }
+  };
+
+  const generateSignalNow = async () => {
+    setGenerating(true);
+    setGenerateError(null);
+    try {
+      // Get wallet address from settings
+      const settingsRes = await fetch('/api/settings?key=wallet');
+      const settingsData = await settingsRes.json();
+      const walletAddress = settingsData.success ? settingsData.value : '';
+
+      const res = await fetch('/api/generate-signal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Signal generation failed');
+      }
+      // Reload signals and status after successful generation
+      await loadStatus();
+    } catch (error) {
+      console.error('Error generating signal:', error);
+      setGenerateError(error.message);
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -392,12 +422,30 @@ export default function Dashboard() {
 
           {/* Right Column: Model Chat (30%) */}
           <div className="lg:col-span-4 h-full flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-3 border-b border-gray-100 bg-gray-50/50 flex-shrink-0">
+            <div className="p-3 border-b border-gray-100 bg-gray-50/50 flex-shrink-0 flex justify-between items-center">
               <h3 className="text-sm font-bold text-gray-900 flex items-center space-x-2">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                <span className={`w-2 h-2 rounded-full ${generating ? 'bg-yellow-500' : 'bg-green-500'} animate-pulse`}></span>
                 <span>MODEL CHAT</span>
               </h3>
+              <button
+                onClick={generateSignalNow}
+                disabled={generating}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  generating
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
+                }`}
+              >
+                <FiZap className={`w-3 h-3 ${generating ? 'animate-spin' : ''}`} />
+                <span>{generating ? 'Generating...' : 'Generate Now'}</span>
+              </button>
             </div>
+            {generateError && (
+              <div className="px-3 py-2 bg-red-50 border-b border-red-100 text-xs text-red-600 flex items-center justify-between">
+                <span>{generateError}</span>
+                <button onClick={() => setGenerateError(null)} className="text-red-400 hover:text-red-600 font-bold ml-2">x</button>
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
               {signals.length === 0 ? (
