@@ -719,15 +719,36 @@ async function sendTelegramNotification(message) {
     const modePrefix = isTestMode ? '🧪 TEST MODE: ' : '';
     const text = modePrefix + message;
 
-    await axios.post(
-      `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-      {
-        chat_id: TELEGRAM_CHAT_ID,
-        text: text,
-        parse_mode: 'Markdown',
-      },
-      { timeout: 10000 }
-    );
+    // Telegram messages have a 4096 character limit
+    const TELEGRAM_MAX_LENGTH = 4096;
+    if (text.length > TELEGRAM_MAX_LENGTH) {
+      console.warn(`⚠️ Telegram message too long (${text.length} chars), splitting into chunks`);
+      const chunks = [];
+      for (let i = 0; i < text.length; i += TELEGRAM_MAX_LENGTH) {
+        chunks.push(text.slice(i, i + TELEGRAM_MAX_LENGTH));
+      }
+      for (const chunk of chunks) {
+        await axios.post(
+          `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+          {
+            chat_id: TELEGRAM_CHAT_ID,
+            text: chunk,
+            parse_mode: chunks.length > 1 ? undefined : 'Markdown',
+          },
+          { timeout: 10000 }
+        );
+      }
+    } else {
+      await axios.post(
+        `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+        {
+          chat_id: TELEGRAM_CHAT_ID,
+          text: text,
+          parse_mode: 'Markdown',
+        },
+        { timeout: 10000 }
+      );
+    }
     console.log('✅ Telegram notification sent');
   } catch (error) {
     console.error('Telegram notification failed:', error.message);

@@ -37,12 +37,40 @@ export async function POST(request) {
     // Check if test mode is enabled
     const testModeDoc = await getDoc(doc(db, 'settings', 'test_mode'));
     const isTestMode = testModeDoc.exists() && (testModeDoc.data().value === true || testModeDoc.data().value === 'true');
-    
+
     const modePrefix = isTestMode ? '🧪 TEST MODE: ' : '';
     let text = modePrefix + (message || 'New trading signal received:');
-    
+
     if (signal) {
       text += '\n\n' + JSON.stringify(signal, null, 2);
+    }
+
+    // Telegram messages have a 4096 character limit
+    const TELEGRAM_MAX_LENGTH = 4096;
+    if (text.length > TELEGRAM_MAX_LENGTH) {
+      console.warn(`⚠️ Telegram message too long (${text.length} chars), splitting into chunks`);
+      const chunks = [];
+      for (let i = 0; i < text.length; i += TELEGRAM_MAX_LENGTH) {
+        chunks.push(text.slice(i, i + TELEGRAM_MAX_LENGTH));
+      }
+
+      let lastResponse;
+      for (const chunk of chunks) {
+        lastResponse = await axios.post(
+          `https://api.telegram.org/bot${botToken}/sendMessage`,
+          {
+            chat_id: chatId,
+            text: chunk,
+            parse_mode: chunks.length > 1 ? undefined : 'Markdown',
+          }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: lastResponse.data,
+        chunks: chunks.length,
+      });
     }
 
     const response = await axios.post(
