@@ -13,7 +13,7 @@
     "axios": "^1.13.2",
     "firebase": "^12.6.0",
     "hyperliquid": "^1.7.7",
-    "next": "16.0.3",
+    "next": "16.0.10",
     "node-cron": "^4.2.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",
